@@ -47,7 +47,7 @@ func (s *Service) ReviseDossier(ctx context.Context, dossierID string, cmd Revis
 func (s *Service) RevisionHistory(ctx context.Context, dossierID string, from, to int) (domain.RevisionHistory, error) {
 	snap, err := s.repo.Get(ctx, dossierID)
 	if err != nil {
-		return domain.RevisionHistory{}, fmt.Errorf("读取修订历史失败: %v", err)
+		return domain.RevisionHistory{}, fmt.Errorf("读取修订历史失败: %w", err)
 	}
 	return domain.VerifyRevisionHistory(dossierID, snap.Revisions, snap.Segments, from, to)
 }

@@ -65,14 +65,14 @@ func (s *Service) CreateDossier(ctx context.Context, cmd CreateDossierCommand) (
 func (s *Service) GetDossier(ctx context.Context, id string) (DossierView, error) {
 	snap, err := s.repo.Get(ctx, id)
 	if err != nil {
-		return DossierView{}, fmt.Errorf("读取档案失败: %v", err)
+		return DossierView{}, fmt.Errorf("读取档案失败: %w", err)
 	}
 	return s.makeView(snap), nil
 }
 func (s *Service) ListDossiers(ctx context.Context) ([]domain.InterviewDossier, error) {
 	items, err := s.repo.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("读取档案列表失败: %v", err)
+		return nil, fmt.Errorf("读取档案列表失败: %w", err)
 	}
 	return items, nil
 }

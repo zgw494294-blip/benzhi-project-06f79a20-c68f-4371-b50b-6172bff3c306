@@ -143,7 +143,7 @@ func (s *Service) Annotate(ctx context.Context, dossierID string, cmd AnnotateCo
 func (s *Service) AnnotationPreflight(ctx context.Context, dossierID string, cmd AnnotateCommand) (domain.AnnotationPreflight, error) {
 	snap, err := s.repo.Get(ctx, dossierID)
 	if err != nil {
-		return domain.AnnotationPreflight{}, fmt.Errorf("读取标注预检档案失败: %v", err)
+		return domain.AnnotationPreflight{}, fmt.Errorf("读取标注预检档案失败: %w", err)
 	}
 	if err = checkVersion(snap, cmd.Version); err != nil {
 		return domain.AnnotationPreflight{}, err
