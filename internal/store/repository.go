@@ -57,6 +57,10 @@ func (r *Repository) Create(ctx context.Context, s Snapshot) error {
 	return tx.Commit()
 }
 
+// Save 持久化整个聚合快照。主记录更新、子记录替换和审计事件全部处于同一个
+// SQLite 事务中：任何子记录写入失败（例如重复 revision_id）都会连同主记录的
+// 版本递增一起回滚，调用方收到失败时数据库仍保持保存前的完整旧状态，
+// 不会出现主记录已到新版本而子记录仍停留在旧版本的部分提交结果。
 func (r *Repository) Save(ctx context.Context, s Snapshot, expectedVersion int64) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -72,27 +76,19 @@ func (r *Repository) Save(ctx context.Context, s Snapshot, expectedVersion int64
 	if n != 1 {
 		return domain.ErrVersionConflict
 	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-	childrenTx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer childrenTx.Rollback()
 	for _, table := range []string{"segments", "review_drafts", "revisions", "review_decisions", "manifests", "audit_events"} {
 		query := fmt.Sprintf("DELETE FROM %s WHERE dossier_id=?", table)
 		if table == "segments" {
 			query = "DELETE FROM segments WHERE revision_id IN (SELECT revision_id FROM revisions WHERE dossier_id=?)"
 		}
-		if _, err = childrenTx.ExecContext(ctx, query, s.Dossier.DossierID); err != nil {
+		if _, err = tx.ExecContext(ctx, query, s.Dossier.DossierID); err != nil {
 			return err
 		}
 	}
-	if err = writeChildren(ctx, childrenTx, s); err != nil {
+	if err = writeChildren(ctx, tx, s); err != nil {
 		return err
 	}
-	return childrenTx.Commit()
+	return tx.Commit()
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
