@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/domain"
@@ -15,13 +16,28 @@ type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
-func parseTime(v string) time.Time { t, _ := time.Parse(time.RFC3339Nano, v); return t }
-func parseNullable(v sql.NullString) *time.Time {
-	if !v.Valid {
-		return nil
+// parseTime parses a persisted RFC3339Nano timestamp. A corrupt value is
+// reported as a data integrity error so it cannot silently become the zero
+// time and continue through application projections.
+func parseTime(v string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339Nano, v)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w: 时间戳 %q 无效: %v", domain.ErrIntegrity, v, err)
 	}
-	t := parseTime(v.String)
-	return &t
+	return t, nil
+}
+
+// parseNullable parses an optional RFC3339Nano timestamp. A present but corrupt
+// value is reported as a data integrity error rather than a zero time.
+func parseNullable(v sql.NullString) (*time.Time, error) {
+	if !v.Valid {
+		return nil, nil
+	}
+	t, err := parseTime(v.String)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func loadRevisions(ctx context.Context, q queryer, s *Snapshot) error {
@@ -36,7 +52,10 @@ func loadRevisions(ctx context.Context, q queryer, s *Snapshot) error {
 			rows.Close()
 			return err
 		}
-		r.SubmittedAt = parseTime(submitted)
+		if r.SubmittedAt, err = parseTime(submitted); err != nil {
+			rows.Close()
+			return err
+		}
 		s.Revisions = append(s.Revisions, r)
 	}
 	if err = rows.Err(); err != nil {
@@ -67,9 +86,13 @@ func loadSegments(ctx context.Context, q queryer, s *Snapshot, revisionID string
 		if err = rows.Scan(&segment.SegmentID, &segment.RevisionID, &segment.Sequence, &segment.Text, &tags, &level, &embargo, &segment.SegmentDigest); err != nil {
 			return err
 		}
-		json.Unmarshal([]byte(tags), &segment.SensitivityTags)
+		if err = json.Unmarshal([]byte(tags), &segment.SensitivityTags); err != nil {
+			return fmt.Errorf("%w: 段落 %s 的 sensitivity_tags 无效: %v", domain.ErrIntegrity, segment.SegmentID, err)
+		}
 		segment.ProposedAccessLevel = domain.AccessLevel(level)
-		segment.EmbargoUntil = parseNullable(embargo)
+		if segment.EmbargoUntil, err = parseNullable(embargo); err != nil {
+			return err
+		}
 		s.Segments[revisionID] = append(s.Segments[revisionID], segment)
 	}
 	return rows.Err()
@@ -90,8 +113,12 @@ func loadDecisions(ctx context.Context, q queryer, s *Snapshot) error {
 		}
 		d.DecisionType = domain.DecisionType(kind)
 		d.RequestedAccessLevel = domain.AccessLevel(level)
-		d.DecidedAt = parseTime(decided)
-		d.ResolvedAt = parseNullable(resolved)
+		if d.DecidedAt, err = parseTime(decided); err != nil {
+			return err
+		}
+		if d.ResolvedAt, err = parseNullable(resolved); err != nil {
+			return err
+		}
 		s.Decisions = append(s.Decisions, d)
 	}
 	return rows.Err()
@@ -110,9 +137,11 @@ func loadReviewDrafts(ctx context.Context, q queryer, s *Snapshot) error {
 			return err
 		}
 		if err = json.Unmarshal([]byte(decisions), &draft.Decisions); err != nil {
+			return fmt.Errorf("%w: 审阅草稿 decisions 无效: %v", domain.ErrIntegrity, err)
+		}
+		if draft.SavedAt, err = parseTime(savedAt); err != nil {
 			return err
 		}
-		draft.SavedAt = parseTime(savedAt)
 		s.ReviewDrafts = append(s.ReviewDrafts, draft)
 	}
 	return rows.Err()
@@ -129,9 +158,15 @@ func loadManifest(ctx context.Context, q queryer, s *Snapshot) error {
 	if err != nil {
 		return err
 	}
-	json.Unmarshal([]byte(entries), &m.SegmentEntries)
-	m.SealedAt = parseTime(sealed)
-	m.ReleasedAt = parseNullable(released)
+	if err = json.Unmarshal([]byte(entries), &m.SegmentEntries); err != nil {
+		return fmt.Errorf("%w: 封存清单 segment_entries 无效: %v", domain.ErrIntegrity, err)
+	}
+	if m.SealedAt, err = parseTime(sealed); err != nil {
+		return err
+	}
+	if m.ReleasedAt, err = parseNullable(released); err != nil {
+		return err
+	}
 	s.Manifest = &m
 	return nil
 }
@@ -150,7 +185,9 @@ func loadAudit(ctx context.Context, q queryer, s *Snapshot) error {
 		}
 		e.BeforeStatus = domain.DossierStatus(before)
 		e.AfterStatus = domain.DossierStatus(after)
-		e.OccurredAt = parseTime(occurred)
+		if e.OccurredAt, err = parseTime(occurred); err != nil {
+			return err
+		}
 		s.AuditEvents = append(s.AuditEvents, e)
 	}
 	return rows.Err()

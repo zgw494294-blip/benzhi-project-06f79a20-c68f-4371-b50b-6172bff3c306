@@ -101,8 +101,12 @@ func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
 	}
 	s.Dossier.ConsentScope = domain.AccessLevel(consent)
 	s.Dossier.Status = domain.DossierStatus(status)
-	s.Dossier.CreatedAt = parseTime(created)
-	s.Dossier.UpdatedAt = parseTime(updated)
+	if s.Dossier.CreatedAt, err = parseTime(created); err != nil {
+		return s, err
+	}
+	if s.Dossier.UpdatedAt, err = parseTime(updated); err != nil {
+		return s, err
+	}
 	if err = loadRevisions(ctx, r.db, &s); err != nil {
 		return s, err
 	}
@@ -136,8 +140,12 @@ func (r *Repository) List(ctx context.Context) ([]domain.InterviewDossier, error
 		}
 		d.ConsentScope = domain.AccessLevel(consent)
 		d.Status = domain.DossierStatus(status)
-		d.CreatedAt = parseTime(created)
-		d.UpdatedAt = parseTime(updated)
+		if d.CreatedAt, err = parseTime(created); err != nil {
+			return nil, err
+		}
+		if d.UpdatedAt, err = parseTime(updated); err != nil {
+			return nil, err
+		}
 		out = append(out, d)
 	}
 	return out, rows.Err()
