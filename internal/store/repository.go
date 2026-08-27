@@ -6,12 +6,39 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
-type Repository struct{ db *sql.DB }
+type Repository struct {
+	db        *sql.DB
+	sharedKey string
+}
+
+var sharedFileDatabases = struct {
+	sync.Mutex
+	byDSN map[string]*sql.DB
+}{byDSN: map[string]*sql.DB{}}
+
+func openDatabase(path, dsn string) (*sql.DB, string, error) {
+	if path == ":memory:" {
+		db, err := sql.Open("sqlite", dsn)
+		return db, "", err
+	}
+	sharedFileDatabases.Lock()
+	defer sharedFileDatabases.Unlock()
+	if db := sharedFileDatabases.byDSN[dsn]; db != nil {
+		return db, dsn, nil
+	}
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, "", err
+	}
+	sharedFileDatabases.byDSN[dsn] = db
+	return db, dsn, nil
+}
 
 func Open(ctx context.Context, path string) (*Repository, error) {
 	if strings.TrimSpace(path) == "" {
@@ -21,7 +48,7 @@ func Open(ctx context.Context, path string) (*Repository, error) {
 	if path == ":memory:" {
 		dsn = "file:oralhistory?mode=memory&cache=shared"
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, sharedKey, err := openDatabase(path, dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -34,10 +61,19 @@ func Open(ctx context.Context, path string) (*Repository, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Repository{db: db}, nil
+	return &Repository{db: db, sharedKey: sharedKey}, nil
 }
 
-func (r *Repository) Close() error { return r.db.Close() }
+func (r *Repository) Close() error {
+	if r.sharedKey != "" {
+		sharedFileDatabases.Lock()
+		if sharedFileDatabases.byDSN[r.sharedKey] == r.db {
+			delete(sharedFileDatabases.byDSN, r.sharedKey)
+		}
+		sharedFileDatabases.Unlock()
+	}
+	return r.db.Close()
+}
 
 func (r *Repository) Create(ctx context.Context, s Snapshot) error {
 	tx, err := r.db.BeginTx(ctx, nil)
