@@ -12,16 +12,23 @@ import (
 )
 
 type Service struct {
-	repo        Repository
-	coordinator *Coordinator
-	auditor     *audit.Builder
-	now         func() time.Time
-	serial      atomic.Uint64
+	repo         Repository
+	coordinator  *Coordinator
+	auditor      *audit.Builder
+	now          func() time.Time
+	serial       atomic.Uint64
+	readingCache map[readingCacheKey]readingCacheEntry
 }
 
 func NewService(repo Repository) *Service {
 	now := time.Now
-	return &Service{repo: repo, coordinator: NewCoordinator(), auditor: audit.NewBuilder(now), now: now}
+	return &Service{
+		repo:         repo,
+		coordinator:  NewCoordinator(),
+		auditor:      audit.NewBuilder(now),
+		now:          now,
+		readingCache: make(map[readingCacheKey]readingCacheEntry),
+	}
 }
 
 func (s *Service) nextID(prefix string) string {

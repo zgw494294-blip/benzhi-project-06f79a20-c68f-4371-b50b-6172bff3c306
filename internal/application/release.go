@@ -11,6 +11,16 @@ import (
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/store"
 )
 
+type readingCacheKey struct {
+	dossierID string
+	viewer    domain.AccessLevel
+}
+
+type readingCacheEntry struct {
+	manifestDigest string
+	projection     ReadingCopy
+}
+
 func (s *Service) Seal(ctx context.Context, dossierID string, cmd SealCommand) (DossierView, error) {
 	var view DossierView
 	err := s.coordinator.WithKey(dossierID, func() error {
@@ -207,6 +217,10 @@ func (s *Service) ReadingCopy(ctx context.Context, dossierID string, viewer doma
 	if err != nil {
 		return ReadingCopy{}, err
 	}
+	cacheKey := readingCacheKey{dossierID: dossierID, viewer: viewer}
+	if cached, ok := s.readingCache[cacheKey]; ok && cached.manifestDigest == snap.Manifest.ManifestDigest {
+		return cloneReadingCopy(cached.projection), nil
+	}
 	byID := map[string]domain.TranscriptSegment{}
 	for _, segment := range snap.CurrentSegments() {
 		byID[segment.SegmentID] = segment
@@ -219,5 +233,16 @@ func (s *Service) ReadingCopy(ctx context.Context, dossierID string, viewer doma
 			copy.Segments = append(copy.Segments, ReadingSegment{entry.SegmentID, entry.Sequence, segment.Text, entry.AccessLevel})
 		}
 	}
+	s.readingCache[cacheKey] = readingCacheEntry{
+		manifestDigest: snap.Manifest.ManifestDigest,
+		projection:     cloneReadingCopy(copy),
+	}
 	return copy, nil
+}
+
+func cloneReadingCopy(source ReadingCopy) ReadingCopy {
+	cloned := source
+	cloned.Segments = append([]ReadingSegment(nil), source.Segments...)
+	cloned.Timeline = append([]domain.AuditEvent(nil), source.Timeline...)
+	return cloned
 }
