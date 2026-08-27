@@ -72,19 +72,27 @@ func (r *Repository) Save(ctx context.Context, s Snapshot, expectedVersion int64
 	if n != 1 {
 		return domain.ErrVersionConflict
 	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	childrenTx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer childrenTx.Rollback()
 	for _, table := range []string{"segments", "review_drafts", "revisions", "review_decisions", "manifests", "audit_events"} {
 		query := fmt.Sprintf("DELETE FROM %s WHERE dossier_id=?", table)
 		if table == "segments" {
 			query = "DELETE FROM segments WHERE revision_id IN (SELECT revision_id FROM revisions WHERE dossier_id=?)"
 		}
-		if _, err = tx.ExecContext(ctx, query, s.Dossier.DossierID); err != nil {
+		if _, err = childrenTx.ExecContext(ctx, query, s.Dossier.DossierID); err != nil {
 			return err
 		}
 	}
-	if err = writeChildren(ctx, tx, s); err != nil {
+	if err = writeChildren(ctx, childrenTx, s); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return childrenTx.Commit()
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
