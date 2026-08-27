@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="口述历史授权编研工作台">
+  <title>口述历史授权编研工作台</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><p class="eyebrow">ORAL HISTORY · CONSENT DESK</p><h1>口述历史授权编研工作台</h1></div>
+    <button id="refresh" class="ghost" type="button">刷新档案</button>
+  </header>
+  <main class="layout">
+    <aside class="sidebar" aria-label="档案列表">
+      <div class="section-title"><h2>访谈档案</h2><span id="count" class="counter">0</span></div>
+      <button id="new-dossier" class="primary wide" type="button">＋ 建立新档案</button>
+      <nav id="dossier-list" class="dossier-list"></nav>
+    </aside>
+    <section class="workspace" aria-live="polite">
+      <div id="notice" class="notice" hidden></div>
+      <section id="welcome" class="welcome card">
+        <p class="eyebrow">从知情授权到分级开放</p>
+        <h2>让每一项公开决定都有出处</h2>
+        <p>建立访谈档案后，工作台会引导访谈员、参与者和编研员依次完成转写、敏感标注、审阅协商、封存与阅览副本生成。</p>
+        <button class="primary" data-action="new" type="button">开始建档</button>
+      </section>
+      <section id="detail" hidden>
+        <div class="detail-head card">
+          <div><p id="detail-id" class="eyebrow"></p><h2 id="detail-title"></h2><p id="detail-meta" class="muted"></p></div>
+          <div class="status-box"><span id="status" class="status"></span><strong id="todo"></strong><small id="version"></small></div>
+        </div>
+        <div id="workflow" class="workflow"></div>
+        <details class="card audit"><summary>审计时间线与摘要验证</summary><ol id="timeline"></ol></details>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="create-dialog">
+    <form id="create-form" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">STEP 01</p><h2>建立访谈档案</h2></div><button class="icon" value="cancel" aria-label="关闭">×</button></div>
+      <div class="form-grid">
+        <label class="span-2">档案标题<input name="title" required maxlength="120" placeholder="例如：老厂区生活史访谈"></label>
+        <label>参与者姓名<input name="participantName" required maxlength="80"></label>
+        <label>访谈员姓名<input name="interviewerName" required maxlength="80"></label>
+        <label>访谈日期<input name="sessionDate" type="date" required></label>
+        <label>可公开范围<select name="consentScope" required><option value="public">公开</option><option value="researcher">仅研究者</option><option value="restricted">受限阅览</option><option value="closed">不开放</option></select></label>
+        <label class="span-2">材料摘要<textarea name="materialSummary" required rows="4" maxlength="1000"></textarea></label>
+        <label class="span-2">建档操作者<input name="actor" required value="访谈员"></label>
+      </div>
+      <div class="actions"><button value="cancel" class="ghost">取消</button><button id="create-submit" class="primary" type="submit" value="default">创建档案</button></div>
+    </form>
+  </dialog>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>分级阅览副本</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body class="reading-page">
+  <header class="topbar"><div><p class="eyebrow">SEALED READING COPY</p><h1>分级阅览副本</h1></div><a class="ghost button" href="/">返回工作台</a></header>
+  <main class="reading-main">
+    <section class="card reading-controls"><label>当前访问级别<select id="reading-level"><option value="public">公开访客</option><option value="researcher">研究者</option><option value="restricted">受限阅览员</option></select></label><button id="load-reading" class="primary">加载副本</button></section>
+    <section id="reading-copy" class="card"><p class="muted">请选择访问级别加载经服务端过滤的正文。</p></section>
+    <section id="reading-audit" class="card" hidden><h2>开放审计时间线</h2><ol id="reading-timeline"></ol></section>
+  </main>
+  <script src="/assets/reading.js" defer></script>
+</body></html>
