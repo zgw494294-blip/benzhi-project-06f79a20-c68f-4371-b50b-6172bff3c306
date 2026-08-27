@@ -65,7 +65,7 @@ func (s *Service) Seal(ctx context.Context, dossierID string, cmd SealCommand) (
 func (s *Service) SealPreflight(ctx context.Context, dossierID string) (SealPreflight, error) {
 	snap, err := s.repo.Get(ctx, dossierID)
 	if err != nil {
-		return SealPreflight{}, err
+		return SealPreflight{}, fmt.Errorf("读取封存预检档案失败: %v", err)
 	}
 	result, _, err := s.buildSealPreflight(snap)
 	return result, err
@@ -195,7 +195,7 @@ func (s *Service) ReadingCopy(ctx context.Context, dossierID string, viewer doma
 	}
 	snap, err := s.repo.Get(ctx, dossierID)
 	if err != nil {
-		return ReadingCopy{}, err
+		return ReadingCopy{}, fmt.Errorf("读取分级阅览档案失败: %v", err)
 	}
 	if snap.Dossier.Status != domain.StatusReleased || snap.Manifest == nil {
 		return ReadingCopy{}, domain.ErrInvalidTransition

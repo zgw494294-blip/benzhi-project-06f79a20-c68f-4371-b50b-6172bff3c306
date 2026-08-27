@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/domain"
@@ -46,7 +47,7 @@ func (s *Service) ReviseDossier(ctx context.Context, dossierID string, cmd Revis
 func (s *Service) RevisionHistory(ctx context.Context, dossierID string, from, to int) (domain.RevisionHistory, error) {
 	snap, err := s.repo.Get(ctx, dossierID)
 	if err != nil {
-		return domain.RevisionHistory{}, err
+		return domain.RevisionHistory{}, fmt.Errorf("读取修订历史失败: %v", err)
 	}
 	return domain.VerifyRevisionHistory(dossierID, snap.Revisions, snap.Segments, from, to)
 }
