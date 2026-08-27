@@ -8,13 +8,21 @@ import (
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/domain"
 )
 
-type Builder struct{ now func() time.Time }
+type Builder struct {
+	now          func() time.Time
+	lastOccurred map[string]time.Time
+}
 
 func NewBuilder(now func() time.Time) *Builder {
 	if now == nil {
 		now = time.Now
 	}
-	return &Builder{now: now}
+	return &Builder{now: now, lastOccurred: make(map[string]time.Time)}
+}
+
+func (b *Builder) LastOccurred(dossierID string) (time.Time, bool) {
+	occurredAt, ok := b.lastOccurred[dossierID]
+	return occurredAt, ok
 }
 
 type Change struct {
@@ -47,7 +55,12 @@ func (b *Builder) Next(history []domain.AuditEvent, change Change) (domain.Audit
 		}
 		previous, sequence = last.EventDigest, last.Sequence+1
 	}
-	e := domain.AuditEvent{EventID: change.EventID, DossierID: change.DossierID, Sequence: sequence, EventType: change.EventType, Actor: strings.TrimSpace(change.Actor), Reason: strings.TrimSpace(change.Reason), BeforeStatus: change.BeforeStatus, AfterStatus: change.AfterStatus, OccurredAt: b.now().UTC(), PreviousDigest: previous}
+	occurredAt := b.now().UTC()
+	if last, ok := b.lastOccurred[change.DossierID]; ok && !occurredAt.After(last) {
+		occurredAt = last.Add(time.Nanosecond)
+	}
+	b.lastOccurred[change.DossierID] = occurredAt
+	e := domain.AuditEvent{EventID: change.EventID, DossierID: change.DossierID, Sequence: sequence, EventType: change.EventType, Actor: strings.TrimSpace(change.Actor), Reason: strings.TrimSpace(change.Reason), BeforeStatus: change.BeforeStatus, AfterStatus: change.AfterStatus, OccurredAt: occurredAt, PreviousDigest: previous}
 	e.EventDigest = eventDigest(e)
 	return e, nil
 }

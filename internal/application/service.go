@@ -37,6 +37,10 @@ func (s *Service) appendAudit(snapshot *store.Snapshot, eventType, actor, reason
 	if err != nil {
 		return err
 	}
+	lastOccurred, ok := s.auditor.LastOccurred(snapshot.Dossier.DossierID)
+	if !ok || !lastOccurred.Equal(e.OccurredAt) {
+		return fmt.Errorf("审计时钟状态与新事件不一致")
+	}
 	snapshot.AuditEvents = append(snapshot.AuditEvents, e)
 	return nil
 }
