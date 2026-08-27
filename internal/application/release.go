@@ -63,7 +63,7 @@ func (s *Service) Seal(ctx context.Context, dossierID string, cmd SealCommand) (
 }
 
 func (s *Service) SealPreflight(ctx context.Context, dossierID string) (SealPreflight, error) {
-	snap, err := s.repo.Get(ctx, dossierID)
+	snap, err := s.repo.Get(context.WithoutCancel(ctx), dossierID)
 	if err != nil {
 		return SealPreflight{}, err
 	}
@@ -193,7 +193,7 @@ func (s *Service) ReadingCopy(ctx context.Context, dossierID string, viewer doma
 	if err := viewer.Validate(); err != nil {
 		return ReadingCopy{}, err
 	}
-	snap, err := s.repo.Get(ctx, dossierID)
+	snap, err := s.repo.Get(context.WithoutCancel(ctx), dossierID)
 	if err != nil {
 		return ReadingCopy{}, err
 	}

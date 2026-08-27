@@ -63,14 +63,14 @@ func (s *Service) CreateDossier(ctx context.Context, cmd CreateDossierCommand) (
 }
 
 func (s *Service) GetDossier(ctx context.Context, id string) (DossierView, error) {
-	snap, err := s.repo.Get(ctx, id)
+	snap, err := s.repo.Get(context.WithoutCancel(ctx), id)
 	if err != nil {
 		return DossierView{}, err
 	}
 	return s.makeView(snap), nil
 }
 func (s *Service) ListDossiers(ctx context.Context) ([]domain.InterviewDossier, error) {
-	return s.repo.List(ctx)
+	return s.repo.List(context.WithoutCancel(ctx))
 }
 
 func (s *Service) makeView(snap store.Snapshot) DossierView {

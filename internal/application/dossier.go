@@ -44,7 +44,7 @@ func (s *Service) ReviseDossier(ctx context.Context, dossierID string, cmd Revis
 }
 
 func (s *Service) RevisionHistory(ctx context.Context, dossierID string, from, to int) (domain.RevisionHistory, error) {
-	snap, err := s.repo.Get(ctx, dossierID)
+	snap, err := s.repo.Get(context.WithoutCancel(ctx), dossierID)
 	if err != nil {
 		return domain.RevisionHistory{}, err
 	}

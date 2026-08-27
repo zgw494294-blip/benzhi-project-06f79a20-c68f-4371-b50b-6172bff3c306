@@ -141,7 +141,7 @@ func (s *Service) Annotate(ctx context.Context, dossierID string, cmd AnnotateCo
 }
 
 func (s *Service) AnnotationPreflight(ctx context.Context, dossierID string, cmd AnnotateCommand) (domain.AnnotationPreflight, error) {
-	snap, err := s.repo.Get(ctx, dossierID)
+	snap, err := s.repo.Get(context.WithoutCancel(ctx), dossierID)
 	if err != nil {
 		return domain.AnnotationPreflight{}, err
 	}
