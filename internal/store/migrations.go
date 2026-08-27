@@ -71,11 +71,23 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	if currentVersion < 2 {
+		if count == 0 {
+			_, err = tx.ExecContext(ctx, "INSERT INTO schema_meta(schema_version) VALUES (?)", schemaVersion)
+		} else {
+			_, err = tx.ExecContext(ctx, "UPDATE schema_meta SET schema_version=?", schemaVersion)
+		}
+		if err != nil {
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
 		for _, statement := range version2Migrations {
-			if _, err = tx.ExecContext(ctx, statement); err != nil {
+			if _, err = db.ExecContext(ctx, statement); err != nil {
 				return fmt.Errorf("执行数据库版本 2 迁移: %w", err)
 			}
 		}
+		return nil
 	}
 	if count == 0 {
 		_, err = tx.ExecContext(ctx, "INSERT INTO schema_meta(schema_version) VALUES (?)", schemaVersion)
