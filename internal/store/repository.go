@@ -6,12 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"benzhi-project-06f79a20-c68f-4371-b50b-6172bff3c306/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
-type Repository struct{ db *sql.DB }
+type Repository struct {
+	db        *sql.DB
+	cacheMu   sync.RWMutex
+	snapshots map[string]Snapshot
+}
 
 func Open(ctx context.Context, path string) (*Repository, error) {
 	if strings.TrimSpace(path) == "" {
@@ -34,7 +39,7 @@ func Open(ctx context.Context, path string) (*Repository, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Repository{db: db}, nil
+	return &Repository{db: db, snapshots: make(map[string]Snapshot)}, nil
 }
 
 func (r *Repository) Close() error { return r.db.Close() }
@@ -84,7 +89,13 @@ func (r *Repository) Save(ctx context.Context, s Snapshot, expectedVersion int64
 	if err = writeChildren(ctx, tx, s); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	r.cacheMu.Lock()
+	delete(r.snapshots, s.Dossier.DossierID)
+	r.cacheMu.Unlock()
+	return nil
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
@@ -103,6 +114,12 @@ func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
 	s.Dossier.Status = domain.DossierStatus(status)
 	s.Dossier.CreatedAt = parseTime(created)
 	s.Dossier.UpdatedAt = parseTime(updated)
+	r.cacheMu.RLock()
+	cached, cacheHit := r.snapshots[id]
+	r.cacheMu.RUnlock()
+	if cacheHit && cached.Dossier.Version == s.Dossier.Version {
+		return cached.Clone(), nil
+	}
 	if err = loadRevisions(ctx, r.db, &s); err != nil {
 		return s, err
 	}
@@ -118,6 +135,9 @@ func (r *Repository) Get(ctx context.Context, id string) (Snapshot, error) {
 	if err = loadAudit(ctx, r.db, &s); err != nil {
 		return s, err
 	}
+	r.cacheMu.Lock()
+	r.snapshots[id] = s.Clone()
+	r.cacheMu.Unlock()
 	return s, nil
 }
 
